@@ -6,10 +6,13 @@
 //
 #pragma once
     #include "validationLayers.hpp"
+    #include "window/glfwWindow.hpp"
 
     #include <exception>
     #include <vector>
     #include <vulkan/vulkan_core.h>
+
+    #define VK_USE_PLATFORM_WIN32_KHR
     #define GLFW_INCLUDE_VULKAN
     #include <GLFW/glfw3.h>
     #define GLM_FORCE_RADIANS
@@ -17,6 +20,7 @@
     #include <glm/vec4.hpp>
     #include <glm/mat4x4.hpp>
     #include <iostream>
+    #include <optional>
 
 namespace myVulkan {
     #ifdef NDEBUG
@@ -42,14 +46,35 @@ namespace myVulkan {
         public:
             const char *what() const throw() { return "Cannot initialize logical device."; };
     };
+    class myVulkanMissingQueueException : public std::exception {
+        public:
+            const char *what() const throw() { return "A queue is missing."; };
+    };
+
+    //* queueFamilyIndexs struct
+    struct queueFamilyIndexs {
+        public:
+            std::optional<uint32_t> _graphicsFamily;
+
+#ifdef _WIN32
+            std::optional<uint32_t> _windowFamily;
+#endif
+
+            bool
+            isComplete();
+            void
+            completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface);
+        private:
+    };
 
     //* myVulkan class
     class myVulkan {
         public:
-            myVulkan();
+            myVulkan(myVulkanGLFWwindow& window);
             ~myVulkan();
 
         private:
+            myVulkanGLFWwindow& _window;
             VkInstance _instance = VK_NULL_HANDLE;
         private:
             VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
@@ -58,7 +83,7 @@ namespace myVulkan {
             uint64_t
             getDeviceSuitabilityScore(VkPhysicalDevice device);
         private:
-            uint64_t _queueFamilyIndex = 0;
+            struct queueFamilyIndexs _queueFamilyIndexs;
             void
             initQueueFamilyIndex();
             uint64_t
@@ -68,6 +93,10 @@ namespace myVulkan {
             VkQueue _graphicsQueue;
             void
             initLogicalDevice();
+        private:
+            VkSurfaceKHR _surface = VK_NULL_HANDLE;
+            void
+            initSurface();
 
     }; //myVulkan
 

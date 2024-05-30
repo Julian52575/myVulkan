@@ -16,7 +16,49 @@
 
 namespace myVulkan {
 
-    myVulkan::myVulkan()
+    bool
+    queueFamilyIndexs::isComplete()
+    {
+        if (this->_graphicsFamily.has_value() == false)
+            return false;
+#ifdef _WIN32
+        if (this->_graphicsFamily.has_value() == false)
+            return false;
+#endif
+        return true;
+    }
+
+    void
+    queueFamilyIndexs::completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface)
+    {
+        uint32_t queueFamilyCount = 0;
+        uint64_t index = 0;
+        uint64_t bestScore = 0;
+        std::optional<uint64_t> bestQueueFamilyIndex;
+
+        //* queueFamilyList
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+        std::vector<VkQueueFamilyProperties> queueFamilyList(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilyList.data());
+        //* indexs
+        for (const auto& currentQueueFamily : queueFamilyList) {
+            //* graphic
+            if (currentQueueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+                this->_graphicsFamily = index;
+            //* windows os support
+#ifdef _WIN32
+            VkBool32 khrSupport = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, index, surface, &khrSupport);
+            if (khrSupport)
+                this->_windowFamily = index;
+#endif
+
+            index += 1;
+        }
+    }
+
+
+    myVulkan::myVulkan(myVulkanGLFWwindow& window) : _window(window)
     {
         VkApplicationInfo appInfo{};
         VkInstanceCreateInfo createInfo{};
@@ -55,17 +97,19 @@ namespace myVulkan {
                 enableValidationLayers = false;
             }
         }
+        this->initSurface();
         this->initPhysicalDevice();
         this->initQueueFamilyIndex();
+        this->initLogicalDevice();
         return;
     }
 
     myVulkan::~myVulkan()
     {
-        if (this->_instance != VK_NULL_HANDLE)
-            vkDestroyInstance(this->_instance, nullptr);
         if (this->_logicalDevice != VK_NULL_HANDLE)
             vkDestroyDevice(this->_logicalDevice, nullptr);
+        if (this->_instance != VK_NULL_HANDLE)
+            vkDestroyInstance(this->_instance, nullptr);
         return;
     }
 
@@ -127,62 +171,33 @@ namespace myVulkan {
     void
     myVulkan::initQueueFamilyIndex()
     {
-        uint32_t queueFamilyCount = 0;
-        uint64_t index = 0;
-        uint64_t bestScore = 0;
-        std::optional<uint64_t> bestQueueFamilyIndex;
-
         if (this->_physicalDevice == VK_NULL_HANDLE)
             throw myVulkanUninitializedGpuException();
-        //* queueFamilyList
-        vkGetPhysicalDeviceQueueFamilyProperties(this->_physicalDevice, &queueFamilyCount, nullptr);
-        std::vector<VkQueueFamilyProperties> queueFamilyList(queueFamilyCount);
-        vkGetPhysicalDeviceQueueFamilyProperties(this->_physicalDevice, &queueFamilyCount, queueFamilyList.data());
-        //* index && bestScore
-        for (const auto& currentQueueFamily : queueFamilyList) {
-            uint64_t currentScore = this->getQueueFamilySuitabilityScore(currentQueueFamily);
-            if (currentScore == 0)
-                continue;
-            if (currentScore > bestScore) {
-                bestScore = currentScore;
-                bestQueueFamilyIndex = index;
-            }
-            index += 1;
-        }
-        if (bestQueueFamilyIndex.has_value() == false) {
-            throw myVulkanNoCompatibleGpuException();
-        }
-        this->_queueFamilyIndex = *bestQueueFamilyIndex;
+        this->_queueFamilyIndexs.completeFromPhysicalDevice(this->_physicalDevice, this->_surface);
+        if (this->_queueFamilyIndexs.isComplete() == false)
+            throw myVulkanMissingQueueException();
         return;
     }
 
-    uint64_t
-    myVulkan::getQueueFamilySuitabilityScore(VkQueueFamilyProperties queueFamilyProperties)
-    {
-        uint64_t score = 0;
-
-        if (queueFamilyProperties.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-            score += 1000;
-        return score;
-    }
 
     void
     myVulkan::initLogicalDevice()
     {
-        float queuePriority = 1.0f;
         VkDeviceQueueCreateInfo queueCreateInfo{};
+        float queuePriority = 1.0f;
         VkPhysicalDeviceFeatures deviceFeatures{};
         VkDeviceCreateInfo createInfo{};
 
         //* queueCreateInfo
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = this->_queueFamilyIndex;
+        queueCreateInfo.queueFamilyIndex = this->_queueFamilyIndexs._graphicsFamily.value();
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
         //* createInfo
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         createInfo.pQueueCreateInfos = &queueCreateInfo;
         createInfo.queueCreateInfoCount = 1;
+        vkGetPhysicalDeviceFeatures(this->_physicalDevice, &deviceFeatures);
         createInfo.pEnabledFeatures = &deviceFeatures;
         if (enableValidationLayers) {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -190,11 +205,26 @@ namespace myVulkan {
         } else {
             createInfo.enabledLayerCount = 0;
         }
+        //* this->_logicalDevice
         VkResult result = vkCreateDevice(this->_physicalDevice, &createInfo, nullptr, &this->_logicalDevice);
         if (result != VK_SUCCESS)
             throw myVulkanLogicalDeviceInitializationException();
-        vkGetDeviceQueue(this->_logicalDevice, this->_queueFamilyIndex, 0, &this->_graphicsQueue);
+        vkGetDeviceQueue(this->_logicalDevice, this->_queueFamilyIndexs._graphicsFamily.value(), 0, &this->_graphicsQueue);
         return;
+    }
+
+    void
+    myVulkan::initSurface()
+    {
+#ifdef _WIN32
+        VkWin32SurfaceCreateInfoKHR createInfo{};
+
+        createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+        createInfo.hwnd = glfwGetWin32Window(window);
+        createInfo.hinstance = GetModuleHandle(nullptr);
+        if (vkCreateWin32SurfaceKHR(this->_instance, &createInfo, nullptr, &this->_surface) != VK_SUCCESS)
+            throw std::exception();
+#endif
     }
 
 }

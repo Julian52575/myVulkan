@@ -11,7 +11,8 @@ CFLAGS = -std=c++17 -O3 -Wall -Wextra
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 SRC = src/main.cpp \
-	src/myvulkan/*.cpp
+	src/myvulkan/*.cpp \
+	src/myvulkan/window/*.cpp
 
 all:
 	g++ $(CFLAGS) -o $(NAME) $(SRC) $(LDFLAGS) -DNDEBUG
