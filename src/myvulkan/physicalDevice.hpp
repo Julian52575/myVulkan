@@ -16,6 +16,8 @@
     #include <GLFW/glfw3.h>
     #include <vulkan/vulkan_core.h>
 
+    #include "../../commons/2PointInt.hpp"
+
 namespace myVulkan {
 
     class myVulkanNoCompatibleGpuException : public std::exception {
@@ -28,7 +30,7 @@ namespace myVulkan {
     };
 
     //* queueFamilyIndexs struct
-    struct queueFamilyIndexs {
+    struct queueFamilyIndexes {
         public:
             std::optional<uint32_t> _graphicsFamily;
 
@@ -49,10 +51,29 @@ namespace myVulkan {
 #endif
     };
 
+    //* Swap Chain details
+    struct swapChainSupportDetails {
+        public:
+            VkSurfaceCapabilitiesKHR _capabilities;
+            std::vector<VkSurfaceFormatKHR> _formatList;
+            std::vector<VkPresentModeKHR> _presentModesList;
+
+            void
+            completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface);
+            bool
+            isComplete();
+            VkSurfaceFormatKHR
+            getSurfaceFormat();
+            VkPresentModeKHR
+            getPresentationMode();
+            VkExtent2D
+            getSwapExtent2D(const myVulkan2PointInt &frameBufferSize);
+    };
+
 
     class myVulkanPhysicalDevice {
         public:
-            myVulkanPhysicalDevice(VkInstance const *instance);
+            myVulkanPhysicalDevice(VkInstance const *instance, VkSurfaceKHR& surface);
             ~myVulkanPhysicalDevice();
             myVulkanPhysicalDevice operator=(const myVulkanPhysicalDevice& other);
         public:
@@ -61,25 +82,23 @@ namespace myVulkan {
         public:
             VkPhysicalDevice&
             getDevice();
-            VkSurfaceKHR&
-            getSurface();
+            swapChainSupportDetails&
+            getSwapChainSupportDetails();
         private:
             VkInstance const* _instance;
+            VkSurfaceKHR& _surface;
+        private:
             VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
             uint64_t
             getDeviceSuitabilityScore(VkPhysicalDevice device);
             bool
             checkDeviceExtensionSupport(VkPhysicalDevice device);
         private:
-            queueFamilyIndexs _queueFamilyIndexs = {0};
-            const queueFamilyIndexs&
+            queueFamilyIndexes _queueFamilyIndexs;
+            const queueFamilyIndexes&
             getQueueFamilyIndexs();
         private:
-            VkSurfaceKHR _surface = VK_NULL_HANDLE;
-#ifdef _WIN32
-            void
-            initSurface(VkInstance& instance);
-#endif
+            swapChainSupportDetails _swapChainDetails;
     };
 
 }

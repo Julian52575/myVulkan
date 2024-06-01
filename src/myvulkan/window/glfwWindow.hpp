@@ -5,7 +5,10 @@
 // glfw Window
 //
 #pragma once
-    #include <exception>
+    #include <cstdint>
+#include <exception>
+#include <sys/types.h>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
     #include <string>
 
@@ -20,6 +23,7 @@
 
 #endif
 
+    #include "../../../interfaces/ImyVulkanWindow.hpp"
 
 namespace myVulkan {
 
@@ -27,22 +31,38 @@ namespace myVulkan {
         public:
             virtual const char *what() const throw() { return "An error occured when initializing the glfw window."; };
     };
-
-    class myVulkanGLFWwindow {
+    class muVulkanGLFWwindowSurfaceInitializationException : public std::exception {
         public:
-            myVulkanGLFWwindow(const std::string& title);
-            ~myVulkanGLFWwindow();
+            virtual const char *what() const throw() { return "An error occured when initializing the glfw window surface."; };
+    };
 
+    class myVulkanGLFWwindow : public ImyVulkanWindow {
+        public:
+            myVulkanGLFWwindow(const std::string& title, uint64_t width = 1920, uint64_t height = 1080);
+            ~myVulkanGLFWwindow();
+        public:
             void
             runFrame(void);
-
+        public:
+            uint64_t
+            getWidth() const;
+            uint64_t
+            getHeight() const;
+            const myVulkan2PointInt&
+            getFrameBufferSize();
+            VkSurfaceKHR&
+            getSurface(VkInstance& instance);
 #ifdef _WIN32
+        public:
             HWND
             getHWND() const;
 #endif
-
         private:
             GLFWwindow *_window = nullptr;
+            uint64_t _width = 0;
+            uint64_t _height = 0;
+            myVulkan2PointInt _frameBufferSize;
+            VkSurfaceKHR _surface = VK_NULL_HANDLE;
 
     }; //class glfwWindow
 

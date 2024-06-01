@@ -7,12 +7,15 @@
 #include "physicalDevice.hpp"
 #include "myvulkan.hpp"
 #include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <algorithm>
 #include <vulkan/vulkan_core.h>
 
 namespace myVulkan {
 
     bool
-    queueFamilyIndexs::isComplete()
+    queueFamilyIndexes::isComplete()
     {
         if (this->_graphicsFamily.has_value() == false)
             return false;
@@ -25,7 +28,7 @@ namespace myVulkan {
 
 
     void
-    queueFamilyIndexs::completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface)
+    queueFamilyIndexes::completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface)
     {
         uint32_t queueFamilyCount = 0;
         uint64_t index = 0;
@@ -54,7 +57,7 @@ namespace myVulkan {
 
 #ifdef _WIN32
     void
-    queueFamilyIndexs::checkWin32Support(VkPhysicalDevice device, VkSurfaceKHR surface, uint64_t index)
+    queueFamilyIndexes::checkWin32Support(VkPhysicalDevice device, VkSurfaceKHR surface, uint64_t index)
     {
         VkBool32 khrSupport = false;
 
@@ -67,13 +70,83 @@ namespace myVulkan {
 
     //*         QueueIndexes
 
+    //*         swapChainSupportDetails
+    void
+    swapChainSupportDetails::completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface)
+    {
+        uint32_t formatCount = 0;
+        uint32_t presentModeCount = 0;
+
+        //* this->_capabilities
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &this->_capabilities);
+        //* this->_formatList
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+        if (formatCount > 0) {
+            this->_formatList.resize(formatCount);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, this->_formatList.data());
+        }
+        //* this->_presentModesList
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+        if (presentModeCount > 0) {
+            this->_presentModesList.resize(presentModeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, this->_presentModesList.data());
+        }
+        return;
+    }
+    bool
+    swapChainSupportDetails::isComplete()
+    {
+        if (this->_formatList.empty() == true)
+            return false;
+        if (this->_presentModesList.empty() == true)
+            return false;
+        return true;
+    }
+    VkSurfaceFormatKHR
+    swapChainSupportDetails::getSurfaceFormat()
+    {
+        //* If we find then good color format, use it
+        for (const auto& currentFormat : this->_formatList) {
+            if (currentFormat.format == VK_FORMAT_B8G8R8A8_SRGB
+            &&  currentFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+                return currentFormat;
+        }
+        //* else settle for the first one available
+        return this->_formatList[0];
+    }
+    VkPresentModeKHR
+    swapChainSupportDetails::getPresentationMode()
+    {
+        //* if we find the mailbox mode, use it
+        for (const auto& currentPresentMode : this->_presentModesList) {
+            if (currentPresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+                return currentPresentMode;
+        }
+        //* if not, settle for the most common one
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+    VkExtent2D
+    swapChainSupportDetails::getSwapExtent2D(const myVulkan2PointInt &frameBufferSize)
+    {
+        VkExtent2D actualExtent = {0, 0};
+
+        if (this->_capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+            return this->_capabilities.currentExtent;
+        actualExtent = {static_cast<uint32_t>(frameBufferSize.x), static_cast<uint32_t>(frameBufferSize.y)};
+        actualExtent.width = std::clamp(actualExtent.width, this->_capabilities.minImageExtent.width,
+            this->_capabilities.maxImageExtent.width);
+        actualExtent.height = std::clamp(actualExtent.height, this->_capabilities.minImageExtent.height,
+            this->_capabilities.maxImageExtent.height);
+        return actualExtent;
+    }
 
 
 
 
     //*         Physical Device
 
-    myVulkanPhysicalDevice::myVulkanPhysicalDevice(VkInstance const *instance) : _instance(instance)
+    myVulkanPhysicalDevice::myVulkanPhysicalDevice(VkInstance const *instance, VkSurfaceKHR& surface)
+        : _instance(instance), _surface(surface)
     {
         if (instance == nullptr)
             throw myVulkanInitializationException();
@@ -134,8 +207,12 @@ namespace myVulkan {
         uint64_t score = 0;
         VkPhysicalDeviceProperties deviceProperties;
         VkPhysicalDeviceFeatures deviceFeatures;
+        swapChainSupportDetails swapCDetails;
 
         if (this->checkDeviceExtensionSupport(device) == false)
+            return 0;
+        swapCDetails.completeFromPhysicalDevice(device, this->_surface);
+        if (swapCDetails.isComplete() == false)
             return 0;
         //* deviceProperties
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -170,7 +247,7 @@ namespace myVulkan {
         return this->_physicalDevice;
     }
 
-    const queueFamilyIndexs&
+    const queueFamilyIndexes&
     myVulkanPhysicalDevice::getQueueFamilyIndexs()
     {
         if (this->_queueFamilyIndexs.isComplete() == false)
@@ -178,26 +255,12 @@ namespace myVulkan {
         return this->_queueFamilyIndexs;
     }
 
-
-#ifdef _WIN32
-    void
-    myVulkanPhysicalDevice::initSurface(VkInstance& instance)
+    swapChainSupportDetails&
+    myVulkanPhysicalDevice::getSwapChainSupportDetails()
     {
-        VkWin32SurfaceCreateInfoKHR createInfo{};
-
-        createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-        createInfo.hwnd = glfwGetWin32Window(window);
-        createInfo.hinstance = GetModuleHandle(nullptr);
-        if (vkCreateWin32SurfaceKHR(instance, &createInfo, nullptr, &this->_surface) != VK_SUCCESS)
-            throw std::exception();
-        return;
-    }
-#endif
-
-    VkSurfaceKHR&
-    myVulkanPhysicalDevice::getSurface()
-    {
-        return this->_surface;
+        if (this->_swapChainDetails.isComplete() == 0)
+            this->_swapChainDetails.completeFromPhysicalDevice(this->_physicalDevice, this->_surface);
+        return this->_swapChainDetails;
     }
 
 }

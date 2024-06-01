@@ -5,14 +5,14 @@
 // encapsulate vulkan
 //
 #pragma once
-    #include "validationLayers.hpp"
-    #include "window/glfwWindow.hpp"
 
     #include <exception>
     #include <vector>
     #include <vulkan/vulkan_core.h>
 
+#ifdef _WIN32
     #define VK_USE_PLATFORM_WIN32_KHR
+#endif
     #define GLFW_INCLUDE_VULKAN
     #include <GLFW/glfw3.h>
     #define GLM_FORCE_RADIANS
@@ -22,7 +22,9 @@
     #include <iostream>
     #include <optional>
 
+    #include "validationLayers.hpp"
     #include "physicalDevice.hpp"
+    #include "../../interfaces/ImyVulkanWindow.hpp"
 
 namespace myVulkan {
     #ifdef NDEBUG
@@ -53,11 +55,11 @@ namespace myVulkan {
     //* myVulkan class
     class myVulkan {
         public:
-            myVulkan(myVulkanGLFWwindow& window);
+            myVulkan(ImyVulkanWindow& window);
             ~myVulkan();
 
         private:
-            myVulkanGLFWwindow& _window;
+            ImyVulkanWindow& _window;
         private:
             VkInstance _instance = VK_NULL_HANDLE;
             void
@@ -67,7 +69,7 @@ namespace myVulkan {
             void
             initPhysicalDevice();
         private:
-            struct queueFamilyIndexs _queueFamilyIndexs;
+            struct queueFamilyIndexes _queueFamilyIndexs;
             void
             initQueueFamilyIndex();
             uint64_t
@@ -77,6 +79,12 @@ namespace myVulkan {
             VkQueue _graphicsQueue;
             void
             initLogicalDevice();
+        private:
+            VkSurfaceFormatKHR _surfaceFormat;
+            VkPresentModeKHR _presentationMode;
+            VkExtent2D _extent2D;
+            void
+            initSwapChain();
 
 
     }; //myVulkan

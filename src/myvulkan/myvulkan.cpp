@@ -17,10 +17,10 @@
 
 namespace myVulkan {
 
-
-    myVulkan::myVulkan(myVulkanGLFWwindow& window) : _window(window)
+    myVulkan::myVulkan(ImyVulkanWindow& window) : _window(window)
     {
         this->initVulkanInstance();
+        VkSurfaceKHR& surface = window.getSurface(this->_instance);
         if (enableValidationLayers == true) {
             try {
                 assertValidationLayerSupport();
@@ -30,7 +30,7 @@ namespace myVulkan {
                 enableValidationLayers = false;
             }
         }
-        this->_physicalDevice = myVulkanPhysicalDevice(&this->_instance);
+        this->_physicalDevice = myVulkanPhysicalDevice(&this->_instance, surface);
         this->initQueueFamilyIndex();
         this->initLogicalDevice();
         return;
@@ -124,11 +124,24 @@ namespace myVulkan {
         } else {
             createInfo.enabledLayerCount = 0;
         }
+        createInfo.enabledExtensionCount = static_cast<uint32_t>(neccesaryExtensions.size());
+        createInfo.ppEnabledExtensionNames = neccesaryExtensions.data();
         //* this->_logicalDevice
         VkResult result = vkCreateDevice(physicalDevice, &createInfo, nullptr, &this->_logicalDevice);
         if (result != VK_SUCCESS)
             throw myVulkanLogicalDeviceInitializationException();
         vkGetDeviceQueue(this->_logicalDevice, this->_queueFamilyIndexs._graphicsFamily.value(), 0, &this->_graphicsQueue);
+        return;
+    }
+
+    void
+    myVulkan::initSwapChain()
+    {
+        swapChainSupportDetails& swapCDetails = this->_physicalDevice->getSwapChainSupportDetails();
+
+        this->_surfaceFormat = swapCDetails.getSurfaceFormat();
+        this->_presentationMode = swapCDetails.getPresentationMode();
+        this->_extent2D = swapCDetails.getSwapExtent2D(this->_window.getFrameBufferSize());
         return;
     }
 
