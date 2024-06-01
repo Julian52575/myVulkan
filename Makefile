@@ -7,7 +7,7 @@
 
 NAME = myvulkan.out
 
-CFLAGS = -std=c++17 -O3 -Wall -Wextra
+CFLAGS = -std=c++17 -O3 -Wall -Wextra -Wno-unused-variable
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 SRC = src/main.cpp \

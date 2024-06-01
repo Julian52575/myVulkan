@@ -38,7 +38,6 @@ namespace myVulkan {
             return;
         glfwPollEvents();
         //* from the glfw documentation
-        float ratio;
         int width, height;
 
         glfwGetFramebufferSize(this->_window, &width, &height);
@@ -47,8 +46,6 @@ namespace myVulkan {
         glfwSwapBuffers(this->_window);
         return;
     }
-
-
 
 #ifdef _WIN32
     HWND

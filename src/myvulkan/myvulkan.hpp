@@ -22,6 +22,8 @@
     #include <iostream>
     #include <optional>
 
+    #include "physicalDevice.hpp"
+
 namespace myVulkan {
     #ifdef NDEBUG
         static bool enableValidationLayers = false;
@@ -33,10 +35,6 @@ namespace myVulkan {
     class myVulkanInitializationException : public std::exception {
         public:
             const char *what() const throw() { return "Cannot initialize Vulkan instance."; };
-    };
-    class myVulkanNoCompatibleGpuException : public std::exception {
-        public:
-            const char *what() const throw() { return "Failed to find GPUs with Vulkan support!"; };
     };
     class myVulkanUninitializedGpuException : public std::exception {
         public:
@@ -51,21 +49,6 @@ namespace myVulkan {
             const char *what() const throw() { return "A queue is missing."; };
     };
 
-    //* queueFamilyIndexs struct
-    struct queueFamilyIndexs {
-        public:
-            std::optional<uint32_t> _graphicsFamily;
-
-#ifdef _WIN32
-            std::optional<uint32_t> _windowFamily;
-#endif
-
-            bool
-            isComplete();
-            void
-            completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface);
-        private:
-    };
 
     //* myVulkan class
     class myVulkan {
@@ -75,13 +58,14 @@ namespace myVulkan {
 
         private:
             myVulkanGLFWwindow& _window;
-            VkInstance _instance = VK_NULL_HANDLE;
         private:
-            VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
+            VkInstance _instance = VK_NULL_HANDLE;
+            void
+            initVulkanInstance();
+        private:
+            std::optional<myVulkanPhysicalDevice> _physicalDevice;
             void
             initPhysicalDevice();
-            uint64_t
-            getDeviceSuitabilityScore(VkPhysicalDevice device);
         private:
             struct queueFamilyIndexs _queueFamilyIndexs;
             void
@@ -93,10 +77,7 @@ namespace myVulkan {
             VkQueue _graphicsQueue;
             void
             initLogicalDevice();
-        private:
-            VkSurfaceKHR _surface = VK_NULL_HANDLE;
-            void
-            initSurface();
+
 
     }; //myVulkan
 
