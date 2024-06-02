@@ -7,6 +7,7 @@
 
 #include "myvulkan.hpp"
 #include "physicalDevice.hpp"
+#include "swapChain.hpp"
 #include "validationLayers.hpp"
 #include <GLFW/glfw3.h>
 #include <exception>
@@ -33,13 +34,13 @@ namespace myVulkan {
         this->_physicalDevice = myVulkanPhysicalDevice(&this->_instance, surface);
         this->initQueueFamilyIndex();
         this->initLogicalDevice();
-        this->initSwapChain();
+        this->_swapChain = myVulkanSwapChain(this->_instance, this->_window, this->_physicalDevice.value(), this->_logicalDevice);
         return;
     }
 
     myVulkan::~myVulkan()
     {
-        vkDestroySwapchainKHR(this->_logicalDevice, this->_swapChain, nullptr);
+        vkDestroySwapchainKHR(this->_logicalDevice, this->_swapChain->getSwapChain(), nullptr);
         if (this->_logicalDevice != VK_NULL_HANDLE)
             vkDestroyDevice(this->_logicalDevice, nullptr);
         if (this->_instance != VK_NULL_HANDLE)
@@ -129,63 +130,6 @@ namespace myVulkan {
             throw myVulkanLogicalDeviceInitializationException();
         vkGetDeviceQueue(this->_logicalDevice, queueFamilyIndexs._graphicsFamily.value(), 0, &this->_graphicsQueue);
         return;
-    }
-
-    void
-    myVulkan::initSwapChain()
-    {
-        std::clog << "Initializing Swap chain..." << std::endl;
-        const swapChainSupportDetails& swapCDetails = this->_physicalDevice->getSwapChainSupportDetails();
-        const queueFamilyIndexes& queueIndexes = this->_physicalDevice->getQueueFamilyIndexs();
-        uint32_t indexesTab[] =
-            {queueIndexes._graphicsFamily.value(), queueIndexes._presentFamily.value()};
-        uint32_t imageCount = swapCDetails._capabilities.minImageCount + 1;
-        VkSwapchainCreateInfoKHR createInfo{};
-
-        this->_surfaceFormat = swapCDetails.getSurfaceFormat();
-        this->_presentationMode = swapCDetails.getPresentationMode();
-        this->_extent2D = swapCDetails.getSwapExtent2D(this->_window.getFrameBufferSize());
-        //* imageCount
-        if (swapCDetails._capabilities.maxImageCount > 0
-        &&  imageCount > swapCDetails._capabilities.maxImageCount) {
-            imageCount = swapCDetails._capabilities.maxImageCount;
-        }
-        //* createInfo
-        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        createInfo.surface = this->_window.getSurface(this->_instance);
-        createInfo.minImageCount = imageCount;
-        createInfo.imageFormat = this->_surfaceFormat.format;
-        createInfo.imageColorSpace = this->_surfaceFormat.colorSpace;
-        createInfo.imageExtent = this->_extent2D;
-        createInfo.imageArrayLayers = 1;
-        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        if (queueIndexes._graphicsFamily != queueIndexes._presentFamily) {
-            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-            createInfo.queueFamilyIndexCount = 2;
-            createInfo.pQueueFamilyIndices = indexesTab;
-        } else {
-            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            createInfo.queueFamilyIndexCount = 0;
-            createInfo.pQueueFamilyIndices = nullptr;
-        }
-        createInfo.preTransform = swapCDetails._capabilities.currentTransform;
-        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-        createInfo.presentMode = this->_presentationMode;
-        createInfo.clipped = VK_TRUE;
-        createInfo.oldSwapchain = VK_NULL_HANDLE;
-        //* swapChain
-        if (vkCreateSwapchainKHR(this->_logicalDevice, &createInfo, nullptr, &(this->_swapChain)) != VK_SUCCESS)
-            throw myVulkanSwapChainInitializationException();
-        return;
-    }
-
-    void
-    myVulkan::updateSwapChainImages()
-    {
-        vkGetSwapchainImagesKHR(this->_logicalDevice, this->_swapChain, &(this->_swapChainImagesCount), nullptr);
-        this->_swapChainImages.reserve(this->_swapChainImagesCount);
-        vkGetSwapchainImagesKHR(this->_logicalDevice, this->_swapChain, &(this->_swapChainImagesCount), this->_swapChainImages.data());
-
     }
 
 }

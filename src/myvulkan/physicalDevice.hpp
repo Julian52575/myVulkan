@@ -66,7 +66,7 @@ namespace myVulkan {
         public:
             myVulkanPhysicalDevice(VkInstance const *instance, VkSurfaceKHR& surface);
             ~myVulkanPhysicalDevice();
-            myVulkanPhysicalDevice operator=(const myVulkanPhysicalDevice& other);
+            myVulkanPhysicalDevice operator=(const myVulkanPhysicalDevice&);
         public:
             void
             createDevice();
@@ -90,6 +90,7 @@ namespace myVulkan {
             queueFamilyIndexes _queueFamilyIndexs;
         private:
             swapChainSupportDetails _swapChainDetails;
+
     };
 
 }

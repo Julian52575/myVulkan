@@ -6,7 +6,8 @@
 //
 #pragma once
 
-    #include <exception>
+    #include "swapChain.hpp"
+#include <exception>
     #include <vector>
     #include <vulkan/vulkan_core.h>
 
@@ -23,7 +24,7 @@
     #include <optional>
 
     #include "validationLayers.hpp"
-    #include "physicalDevice.hpp"
+    #include "swapChain.hpp"
     #include "../../interfaces/ImyVulkanWindow.hpp"
 
 namespace myVulkan {
@@ -50,10 +51,6 @@ namespace myVulkan {
         public:
             const char *what() const throw() { return "A queue is missing."; };
     };
-    class myVulkanSwapChainInitializationException : public std::exception {
-        public:
-            const char *what() const throw() { return "Cannot initialize swap chain."; };
-    };
 
 
     //* myVulkan class
@@ -70,8 +67,6 @@ namespace myVulkan {
             initVulkanInstance();
         private:
             std::optional<myVulkanPhysicalDevice> _physicalDevice;
-            void
-            initPhysicalDevice();
         private:
             void
             initQueueFamilyIndex();
@@ -83,19 +78,7 @@ namespace myVulkan {
             void
             initLogicalDevice();
         private:
-            VkSurfaceFormatKHR _surfaceFormat;
-            VkPresentModeKHR _presentationMode;
-            VkExtent2D _extent2D;
-            VkSwapchainKHR _swapChain;
-            void
-            initSwapChain();
-        private:
-            uint32_t _swapChainImagesCount = 0;
-            std::vector<VkImage> _swapChainImages;
-        public:
-            void
-            updateSwapChainImages();
-
+            std::optional<myVulkanSwapChain> _swapChain;
 
     }; //myVulkan
 

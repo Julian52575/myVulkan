@@ -178,7 +178,7 @@ namespace myVulkan {
     {
         return;
     }
-    myVulkanPhysicalDevice myVulkanPhysicalDevice::operator=(const myVulkanPhysicalDevice& other)
+    myVulkanPhysicalDevice myVulkanPhysicalDevice::operator=(const myVulkanPhysicalDevice&)
     {
         return *this;
     }
