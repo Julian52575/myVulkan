@@ -50,6 +50,10 @@ namespace myVulkan {
         public:
             const char *what() const throw() { return "A queue is missing."; };
     };
+    class myVulkanSwapChainInitializationException : public std::exception {
+        public:
+            const char *what() const throw() { return "Cannot initialize swap chain."; };
+    };
 
 
     //* myVulkan class
@@ -69,7 +73,6 @@ namespace myVulkan {
             void
             initPhysicalDevice();
         private:
-            struct queueFamilyIndexes _queueFamilyIndexs;
             void
             initQueueFamilyIndex();
             uint64_t
@@ -83,8 +86,15 @@ namespace myVulkan {
             VkSurfaceFormatKHR _surfaceFormat;
             VkPresentModeKHR _presentationMode;
             VkExtent2D _extent2D;
+            VkSwapchainKHR _swapChain;
             void
             initSwapChain();
+        private:
+            uint32_t _swapChainImagesCount = 0;
+            std::vector<VkImage> _swapChainImages;
+        public:
+            void
+            updateSwapChainImages();
 
 
     }; //myVulkan

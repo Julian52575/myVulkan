@@ -15,14 +15,12 @@
 namespace myVulkan {
 
     bool
-    queueFamilyIndexes::isComplete()
+    queueFamilyIndexes::isComplete() const
     {
         if (this->_graphicsFamily.has_value() == false)
             return false;
-#ifdef _WIN32
-        if (this->_graphicsFamily.has_value() == false)
+        if (this->_presentFamily.has_value() == false)
             return false;
-#endif
         return true;
     }
 
@@ -43,10 +41,10 @@ namespace myVulkan {
             //* graphic
             if (currentQueueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
                 this->_graphicsFamily = index;
-            //* windows os support
-            #ifdef _WIN32
-            this->checkWin32Support(device, index);
-            #endif
+            VkBool32 khrSupport = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, index, surface, &khrSupport);
+            if (khrSupport)
+                this->_presentFamily = index;
             index += 1;
         }
         //*     unused variable fix
@@ -54,19 +52,6 @@ namespace myVulkan {
             return;
         return;
     }
-
-#ifdef _WIN32
-    void
-    queueFamilyIndexes::checkWin32Support(VkPhysicalDevice device, VkSurfaceKHR surface, uint64_t index)
-    {
-        VkBool32 khrSupport = false;
-
-        vkGetPhysicalDeviceSurfaceSupportKHR(device, index, surface, &khrSupport);
-        if (khrSupport)
-            this->_windowFamily = index;
-        return;
-    }
-#endif
 
     //*         QueueIndexes
 
@@ -94,7 +79,7 @@ namespace myVulkan {
         return;
     }
     bool
-    swapChainSupportDetails::isComplete()
+    swapChainSupportDetails::isComplete() const
     {
         if (this->_formatList.empty() == true)
             return false;
@@ -103,7 +88,7 @@ namespace myVulkan {
         return true;
     }
     VkSurfaceFormatKHR
-    swapChainSupportDetails::getSurfaceFormat()
+    swapChainSupportDetails::getSurfaceFormat() const
     {
         //* If we find then good color format, use it
         for (const auto& currentFormat : this->_formatList) {
@@ -115,7 +100,7 @@ namespace myVulkan {
         return this->_formatList[0];
     }
     VkPresentModeKHR
-    swapChainSupportDetails::getPresentationMode()
+    swapChainSupportDetails::getPresentationMode() const
     {
         //* if we find the mailbox mode, use it
         for (const auto& currentPresentMode : this->_presentModesList) {
@@ -126,7 +111,7 @@ namespace myVulkan {
         return VK_PRESENT_MODE_FIFO_KHR;
     }
     VkExtent2D
-    swapChainSupportDetails::getSwapExtent2D(const myVulkan2PointInt &frameBufferSize)
+    swapChainSupportDetails::getSwapExtent2D(const myVulkan2PointInt &frameBufferSize) const
     {
         VkExtent2D actualExtent = {0, 0};
 
@@ -148,6 +133,7 @@ namespace myVulkan {
     myVulkanPhysicalDevice::myVulkanPhysicalDevice(VkInstance const *instance, VkSurfaceKHR& surface)
         : _instance(instance), _surface(surface)
     {
+        std::clog << "Initializing Physical device..." << std::endl;
         if (instance == nullptr)
             throw myVulkanInitializationException();
         this->createDevice();
@@ -190,9 +176,6 @@ namespace myVulkan {
 
     myVulkanPhysicalDevice::~myVulkanPhysicalDevice()
     {
-#ifdef _WIN32
-        vkDestroySurfaceKHR(this->_instance, this->_surface, nullptr);
-#endif
         return;
     }
     myVulkanPhysicalDevice myVulkanPhysicalDevice::operator=(const myVulkanPhysicalDevice& other)
@@ -255,7 +238,7 @@ namespace myVulkan {
         return this->_queueFamilyIndexs;
     }
 
-    swapChainSupportDetails&
+    const swapChainSupportDetails&
     myVulkanPhysicalDevice::getSwapChainSupportDetails()
     {
         if (this->_swapChainDetails.isComplete() == 0)

@@ -25,7 +25,7 @@ namespace myVulkan {
             try {
                 assertValidationLayerSupport();
             } catch (const myVulkanUnavailableValidationLayerException& e) {
-                std::cerr << "[Warning] The following error occured while checking validation layers: \'"
+                std::cerr << "[Warning] The following exception occured while checking validation layers: \'"
                           << e.what() << "\'. Processing without validation layers." << std::endl;
                 enableValidationLayers = false;
             }
@@ -33,11 +33,13 @@ namespace myVulkan {
         this->_physicalDevice = myVulkanPhysicalDevice(&this->_instance, surface);
         this->initQueueFamilyIndex();
         this->initLogicalDevice();
+        this->initSwapChain();
         return;
     }
 
     myVulkan::~myVulkan()
     {
+        vkDestroySwapchainKHR(this->_logicalDevice, this->_swapChain, nullptr);
         if (this->_logicalDevice != VK_NULL_HANDLE)
             vkDestroyDevice(this->_logicalDevice, nullptr);
         if (this->_instance != VK_NULL_HANDLE)
@@ -49,6 +51,7 @@ namespace myVulkan {
     void
     myVulkan::initVulkanInstance()
     {
+        std::clog << "Initializing Vulkan instance..." << std::endl;
         VkApplicationInfo appInfo{};
         VkInstanceCreateInfo createInfo{};
         uint32_t glfwExtensionCount = 0;
@@ -82,17 +85,9 @@ namespace myVulkan {
     void
     myVulkan::initQueueFamilyIndex()
     {
-        VkPhysicalDevice& physicalDevice = this->_physicalDevice->getDevice();
-
-        if (physicalDevice == VK_NULL_HANDLE)
-            throw myVulkanUninitializedGpuException();
-#ifdef _WIN32
-        VkSurfaceKHR& surface = this->_physicalDevice->getSurface();
-        this->_queueFamilyIndexs.completeFromPhysicalDevice(physicalDevice, surface);
-#else
-        this->_queueFamilyIndexs.completeFromPhysicalDevice(physicalDevice);
-#endif
-        if (this->_queueFamilyIndexs.isComplete() == false)
+        std::clog << "Initializing Queue indexes..." << std::endl;
+        const queueFamilyIndexes& queueIndexes = this->_physicalDevice->getQueueFamilyIndexs();
+        if (queueIndexes.isComplete() == false)
             throw myVulkanMissingQueueException();
         return;
     }
@@ -101,7 +96,9 @@ namespace myVulkan {
     void
     myVulkan::initLogicalDevice()
     {
+        std::clog << "Initializing Logical device..." << std::endl;
         VkPhysicalDevice& physicalDevice = this->_physicalDevice->getDevice();
+        const queueFamilyIndexes& queueFamilyIndexs = this->_physicalDevice->getQueueFamilyIndexs();
         VkDeviceQueueCreateInfo queueCreateInfo{};
         float queuePriority = 1.0f;
         VkPhysicalDeviceFeatures deviceFeatures{};
@@ -109,7 +106,7 @@ namespace myVulkan {
 
         //* queueCreateInfo
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queueCreateInfo.queueFamilyIndex = this->_queueFamilyIndexs._graphicsFamily.value();
+        queueCreateInfo.queueFamilyIndex = queueFamilyIndexs._graphicsFamily.value();
         queueCreateInfo.queueCount = 1;
         queueCreateInfo.pQueuePriorities = &queuePriority;
         //* createInfo
@@ -130,20 +127,65 @@ namespace myVulkan {
         VkResult result = vkCreateDevice(physicalDevice, &createInfo, nullptr, &this->_logicalDevice);
         if (result != VK_SUCCESS)
             throw myVulkanLogicalDeviceInitializationException();
-        vkGetDeviceQueue(this->_logicalDevice, this->_queueFamilyIndexs._graphicsFamily.value(), 0, &this->_graphicsQueue);
+        vkGetDeviceQueue(this->_logicalDevice, queueFamilyIndexs._graphicsFamily.value(), 0, &this->_graphicsQueue);
         return;
     }
 
     void
     myVulkan::initSwapChain()
     {
-        swapChainSupportDetails& swapCDetails = this->_physicalDevice->getSwapChainSupportDetails();
+        std::clog << "Initializing Swap chain..." << std::endl;
+        const swapChainSupportDetails& swapCDetails = this->_physicalDevice->getSwapChainSupportDetails();
+        const queueFamilyIndexes& queueIndexes = this->_physicalDevice->getQueueFamilyIndexs();
+        uint32_t indexesTab[] =
+            {queueIndexes._graphicsFamily.value(), queueIndexes._presentFamily.value()};
+        uint32_t imageCount = swapCDetails._capabilities.minImageCount + 1;
+        VkSwapchainCreateInfoKHR createInfo{};
 
         this->_surfaceFormat = swapCDetails.getSurfaceFormat();
         this->_presentationMode = swapCDetails.getPresentationMode();
         this->_extent2D = swapCDetails.getSwapExtent2D(this->_window.getFrameBufferSize());
+        //* imageCount
+        if (swapCDetails._capabilities.maxImageCount > 0
+        &&  imageCount > swapCDetails._capabilities.maxImageCount) {
+            imageCount = swapCDetails._capabilities.maxImageCount;
+        }
+        //* createInfo
+        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        createInfo.surface = this->_window.getSurface(this->_instance);
+        createInfo.minImageCount = imageCount;
+        createInfo.imageFormat = this->_surfaceFormat.format;
+        createInfo.imageColorSpace = this->_surfaceFormat.colorSpace;
+        createInfo.imageExtent = this->_extent2D;
+        createInfo.imageArrayLayers = 1;
+        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        if (queueIndexes._graphicsFamily != queueIndexes._presentFamily) {
+            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            createInfo.queueFamilyIndexCount = 2;
+            createInfo.pQueueFamilyIndices = indexesTab;
+        } else {
+            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            createInfo.queueFamilyIndexCount = 0;
+            createInfo.pQueueFamilyIndices = nullptr;
+        }
+        createInfo.preTransform = swapCDetails._capabilities.currentTransform;
+        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        createInfo.presentMode = this->_presentationMode;
+        createInfo.clipped = VK_TRUE;
+        createInfo.oldSwapchain = VK_NULL_HANDLE;
+        //* swapChain
+        if (vkCreateSwapchainKHR(this->_logicalDevice, &createInfo, nullptr, &(this->_swapChain)) != VK_SUCCESS)
+            throw myVulkanSwapChainInitializationException();
         return;
     }
 
+    void
+    myVulkan::updateSwapChainImages()
+    {
+        vkGetSwapchainImagesKHR(this->_logicalDevice, this->_swapChain, &(this->_swapChainImagesCount), nullptr);
+        this->_swapChainImages.reserve(this->_swapChainImagesCount);
+        vkGetSwapchainImagesKHR(this->_logicalDevice, this->_swapChain, &(this->_swapChainImagesCount), this->_swapChainImages.data());
+
+    }
 
 }

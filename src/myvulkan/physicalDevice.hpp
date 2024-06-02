@@ -33,22 +33,13 @@ namespace myVulkan {
     struct queueFamilyIndexes {
         public:
             std::optional<uint32_t> _graphicsFamily;
-
-#ifdef _WIN32
-            std::optional<uint32_t> _windowFamily;
-#endif
+            std::optional<uint32_t> _presentFamily;
 
             bool
-            isComplete();
+            isComplete() const;
 
             void
-            completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface = VK_NULL_HANDLE);
-#ifdef _WIN32
-            void
             completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface);
-            void
-            checkWin32Support(VkPhysicalDevice device, VkSurfaceKHR surface, uint64_t index);
-#endif
     };
 
     //* Swap Chain details
@@ -61,13 +52,13 @@ namespace myVulkan {
             void
             completeFromPhysicalDevice(VkPhysicalDevice device, VkSurfaceKHR surface);
             bool
-            isComplete();
+            isComplete() const;
             VkSurfaceFormatKHR
-            getSurfaceFormat();
+            getSurfaceFormat() const;
             VkPresentModeKHR
-            getPresentationMode();
+            getPresentationMode() const;
             VkExtent2D
-            getSwapExtent2D(const myVulkan2PointInt &frameBufferSize);
+            getSwapExtent2D(const myVulkan2PointInt &frameBufferSize) const;
     };
 
 
@@ -82,8 +73,10 @@ namespace myVulkan {
         public:
             VkPhysicalDevice&
             getDevice();
-            swapChainSupportDetails&
+            const swapChainSupportDetails&
             getSwapChainSupportDetails();
+            const queueFamilyIndexes&
+            getQueueFamilyIndexs();
         private:
             VkInstance const* _instance;
             VkSurfaceKHR& _surface;
@@ -95,8 +88,6 @@ namespace myVulkan {
             checkDeviceExtensionSupport(VkPhysicalDevice device);
         private:
             queueFamilyIndexes _queueFamilyIndexs;
-            const queueFamilyIndexes&
-            getQueueFamilyIndexs();
         private:
             swapChainSupportDetails _swapChainDetails;
     };

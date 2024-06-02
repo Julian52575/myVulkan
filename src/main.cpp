@@ -27,5 +27,6 @@ int main(void)
 
     std::cout << "Succesfully created myVulkan !" << std::endl;
     window.runFrame();
+    vulkan.updateSwapChainImages();
     return 0;
 }
